@@ -46,8 +46,7 @@ import org.wildfly.sasl.util.SaslStateContext;
  * @author <a href="mailto:darran.lofthouse@jboss.com">Darran Lofthouse</a>
  */
 public final class LocalUserServer extends AbstractSaslServer implements SaslServer {
-
-    // Should SecureRandom be used? Default to true
+    
     public static final String LOCAL_USER_USE_SECURE_RANDOM = "wildfly.sasl.local-user.use-secure-random";
     public static final String LEGACY_LOCAL_USER_USE_SECURE_RANDOM = "jboss.sasl.local-user.use-secure-random";
     public static final String LOCAL_USER_CHALLENGE_PATH = "wildfly.sasl.local-user.challenge-path";
@@ -61,7 +60,7 @@ public final class LocalUserServer extends AbstractSaslServer implements SaslSer
     private volatile File challengeFile;
     private final File basePath;
     private final String defaultUser;
-    private final boolean useSecureRandom;
+    private final boolean useSecureRandom; // Should SecureRandom be used? Default to true
 
     LocalUserServer(final String protocol, final String serverName, final Map<String, ?> props, final CallbackHandler callbackHandler) {
         super(LocalUserSaslFactory.JBOSS_LOCAL_USER, protocol, serverName, callbackHandler);
