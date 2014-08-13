@@ -3,6 +3,8 @@ package org.wildfly.sasl.test;
 import static org.junit.Assert.*;
 
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.security.auth.callback.CallbackHandler;
 import javax.security.sasl.Sasl;
@@ -23,7 +25,7 @@ public class DigestClientBytemanTest extends BaseTestCase {
 
 	protected static final String DIGEST = "DIGEST-MD5";
 	protected static final String REALM_PROPERTY = "com.sun.security.sasl.digest.realm";
-	protected static final String PRE_DIGESTED_PROPERTY = "org.wildfly.sasl.digest.pre_digested";
+	protected static final String QOP_PROPERTY = "javax.security.sasl.qop";
 
 	private SaslClient client;
 
@@ -106,5 +108,123 @@ public class DigestClientBytemanTest extends BaseTestCase {
 		assertTrue(client.isComplete());
 
 	}
+	
+	/**
+	 * Test with authentication plus integrity protection (qop=auth-int)
+	 */
+	@Test
+	@BMRule(name = "Static nonce",
+	        targetClass = "com.sun.security.sasl.digest.DigestMD5Base",
+	        targetMethod = "generateNonce",
+	        action = "return \"OA9BSuZWMSpW8m\".getBytes();")
+	public void testQopAuthInt() throws Exception {
+
+		CallbackHandler clientCallback = new ClientCallbackHandler("chris", "secret".toCharArray());
+		Map<String, Object> clientProps = new HashMap<String, Object>();
+		clientProps.put(QOP_PROPERTY, "auth-int");
+		client = Sasl.createSaslClient(new String[] { DIGEST }, "chris", "acap", "elwood.innosoft.com", clientProps, clientCallback);
+		assertFalse(client.hasInitialResponse());
+		assertFalse(client.isComplete());
+
+		byte[] message1 = "realm=\"elwood.innosoft.com\",nonce=\"OA9BSXrbuRhWay\",qop=\"auth-int\",charset=utf-8,algorithm=md5-sess".getBytes();
+		byte[] message2 = client.evaluateChallenge(message1);
+		assertEquals("charset=utf-8,username=\"chris\",realm=\"elwood.innosoft.com\",nonce=\"OA9BSXrbuRhWay\",nc=00000001,cnonce=\"OA9BSuZWMSpW8m\",digest-uri=\"acap/elwood.innosoft.com\",maxbuf=65536,response=d8b17f55b410208c6ebb22f89f9d6cbb,qop=auth-int,authzid=\"chris\"", new String(message2, "UTF-8"));
+		assertFalse(client.isComplete());
+
+		byte[] message3 = "rspauth=7a8794654d6d6de607e9143d52b554a8".getBytes();
+		byte[] message4 = client.evaluateChallenge(message3);
+		assertEquals(null, message4);
+		assertTrue(client.isComplete());
+
+	}
+	
+	/**
+	 * Test with authentication plus integrity and confidentiality protection (qop=auth-conf)
+	 */
+	@Test
+	@BMRule(name = "Static nonce",
+	        targetClass = "com.sun.security.sasl.digest.DigestMD5Base",
+	        targetMethod = "generateNonce",
+	        action = "return \"OA9BSuZWMSpW8m\".getBytes();")
+	public void testQopAuthConf() throws Exception {
+
+		CallbackHandler clientCallback = new ClientCallbackHandler("chris", "secret".toCharArray());
+		Map<String, Object> clientProps = new HashMap<String, Object>();
+		clientProps.put(QOP_PROPERTY, "auth-conf");
+		client = Sasl.createSaslClient(new String[] { DIGEST }, "chris", "acap", "elwood.innosoft.com", clientProps, clientCallback);
+		assertFalse(client.hasInitialResponse());
+		assertFalse(client.isComplete());
+
+		byte[] message1 = "realm=\"elwood.innosoft.com\",nonce=\"OA9BSXrbuRhWay\",qop=\"auth-conf\",charset=utf-8,cipher=\"3des,rc4,des,rc4-56,rc4-40\",algorithm=md5-sess".getBytes();
+		byte[] message2 = client.evaluateChallenge(message1);
+		assertEquals("charset=utf-8,username=\"chris\",realm=\"elwood.innosoft.com\",nonce=\"OA9BSXrbuRhWay\",nc=00000001,cnonce=\"OA9BSuZWMSpW8m\",digest-uri=\"acap/elwood.innosoft.com\",maxbuf=65536,response=4520cf48234bb93b95548a25cd56601b,qop=auth-conf,cipher=\"3des\",authzid=\"chris\"", new String(message2, "UTF-8"));
+		assertFalse(client.isComplete());
+
+		byte[] message3 = "rspauth=a804fda66588e2d911bbacd1b1163bc1".getBytes();
+		byte[] message4 = client.evaluateChallenge(message3);
+		assertEquals(null, message4);
+		assertTrue(client.isComplete());
+
+	}
+	
+	/**
+	 * Test with authentication plus integrity and confidentiality protection (qop=auth-conf,cipher=3des)
+	 */
+	@Test
+	@BMRule(name = "Static nonce",
+	        targetClass = "com.sun.security.sasl.digest.DigestMD5Base",
+	        targetMethod = "generateNonce",
+	        action = "return \"OA9BSuZWMSpW8m\".getBytes();")
+	public void testQopAuthConf3des() throws Exception {
+
+		CallbackHandler clientCallback = new ClientCallbackHandler("chris", "secret".toCharArray());
+		Map<String, Object> clientProps = new HashMap<String, Object>();
+		clientProps.put(QOP_PROPERTY, "auth-conf");
+		client = Sasl.createSaslClient(new String[] { DIGEST }, "chris", "acap", "elwood.innosoft.com", clientProps, clientCallback);
+		assertFalse(client.hasInitialResponse());
+		assertFalse(client.isComplete());
+
+		byte[] message1 = "realm=\"elwood.innosoft.com\",nonce=\"OA9BSXrbuRhWay\",qop=\"auth-conf\",charset=utf-8,cipher=\"3des\",algorithm=md5-sess".getBytes();
+		byte[] message2 = client.evaluateChallenge(message1);
+		assertEquals("charset=utf-8,username=\"chris\",realm=\"elwood.innosoft.com\",nonce=\"OA9BSXrbuRhWay\",nc=00000001,cnonce=\"OA9BSuZWMSpW8m\",digest-uri=\"acap/elwood.innosoft.com\",maxbuf=65536,response=4520cf48234bb93b95548a25cd56601b,qop=auth-conf,cipher=\"3des\",authzid=\"chris\"", new String(message2, "UTF-8"));
+		assertFalse(client.isComplete());
+
+		byte[] message3 = "rspauth=a804fda66588e2d911bbacd1b1163bc1".getBytes();
+		byte[] message4 = client.evaluateChallenge(message3);
+		assertEquals(null, message4);
+		assertTrue(client.isComplete());
+
+	}
+	
+	/**
+	 * Test with authentication plus integrity and confidentiality protection (qop=auth-conf,cipher=rc4)
+	 */
+	@Test
+	@BMRule(name = "Static nonce",
+	        targetClass = "com.sun.security.sasl.digest.DigestMD5Base",
+	        targetMethod = "generateNonce",
+	        action = "return \"OA9BSuZWMSpW8m\".getBytes();")
+	public void testQopAuthConfRc4() throws Exception {
+
+		CallbackHandler clientCallback = new ClientCallbackHandler("chris", "secret".toCharArray());
+		Map<String, Object> clientProps = new HashMap<String, Object>();
+		clientProps.put(QOP_PROPERTY, "auth-conf");
+		client = Sasl.createSaslClient(new String[] { DIGEST }, "chris", "acap", "elwood.innosoft.com", clientProps, clientCallback);
+		assertFalse(client.hasInitialResponse());
+		assertFalse(client.isComplete());
+
+		byte[] message1 = "realm=\"elwood.innosoft.com\",nonce=\"OA9BSXrbuRhWay\",qop=\"auth-conf\",charset=utf-8,cipher=\"rc4\",algorithm=md5-sess".getBytes();
+		byte[] message2 = client.evaluateChallenge(message1);
+		assertEquals("charset=utf-8,username=\"chris\",realm=\"elwood.innosoft.com\",nonce=\"OA9BSXrbuRhWay\",nc=00000001,cnonce=\"OA9BSuZWMSpW8m\",digest-uri=\"acap/elwood.innosoft.com\",maxbuf=65536,response=4520cf48234bb93b95548a25cd56601b,qop=auth-conf,cipher=\"rc4\",authzid=\"chris\"", new String(message2, "UTF-8"));
+		assertFalse(client.isComplete());
+
+		byte[] message3 = "rspauth=a804fda66588e2d911bbacd1b1163bc1".getBytes();
+		byte[] message4 = client.evaluateChallenge(message3);
+		assertEquals(null, message4);
+		assertTrue(client.isComplete());
+
+	}
+	
+	// TODO: other ciphers? are need?
 	
 }

@@ -11,6 +11,7 @@ import javax.security.sasl.Sasl;
 import javax.security.sasl.SaslClient;
 import javax.security.sasl.SaslServer;
 
+import org.jboss.byteman.contrib.bmunit.BMRule;
 import org.jboss.byteman.contrib.bmunit.BMScript;
 import org.jboss.byteman.contrib.bmunit.BMUnitRunner;
 import org.junit.Ignore;
@@ -25,14 +26,17 @@ import org.junit.runner.RunWith;
  * @author <a href="mailto:jkalina@redhat.com">Jan Kalina</a>
  */
 @RunWith(BMUnitRunner.class)
-public class DigestBytemanTest extends BaseTestCase {
+public class DigestBytemanExampleTest extends BaseTestCase {
 	
 	private static final String DIGEST = "DIGEST-MD5";
     private static final String REALM_PROPERTY = "com.sun.security.sasl.digest.realm";
     private static final String PRE_DIGESTED_PROPERTY = "org.wildfly.sasl.digest.pre_digested";
 	
-	@BMScript(value="nonrandom-nonce", dir="src/test/byteman-scripts")
 	@Test
+	@BMRule(name = "Static nonce",
+            targetClass = "com.sun.security.sasl.digest.DigestMD5Base",
+            targetMethod = "generateNonce",
+            action = "return \"OA6MHXh6VqTrRk\".getBytes();")
 	public void testSuccessfulExchange() throws Exception {
         CallbackHandler serverCallback = new ServerCallbackHandler("George", "gpwd".toCharArray());
         Map<String, Object> serverProps = new HashMap<String, Object>();

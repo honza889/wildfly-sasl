@@ -23,7 +23,7 @@ public class DigestServerBytemanTest extends BaseTestCase {
 	
 	protected static final String DIGEST = "DIGEST-MD5";
 	protected static final String REALM_PROPERTY = "com.sun.security.sasl.digest.realm";
-	protected static final String PRE_DIGESTED_PROPERTY = "org.wildfly.sasl.digest.pre_digested";
+	protected static final String QOP_PROPERTY = "javax.security.sasl.qop";
 	
 	private SaslServer server;
 	
@@ -32,8 +32,7 @@ public class DigestServerBytemanTest extends BaseTestCase {
 		try {
 			server.getAuthorizationID();
 			throw new Exception("Not throwed IllegalStateException!");
-		} catch (IllegalStateException e) {
-		}
+		} catch (IllegalStateException e) {}
 	}
 	
 	/**
@@ -114,7 +113,7 @@ public class DigestServerBytemanTest extends BaseTestCase {
 		
 		byte[] message2 = "charset=utf-8,username=\"chris\",realm=\"elwood.innosoft.com\",nonce=\"OA9BSXrbuRhWay\",nc=00000001,cnonce=\"OA9BSuZWMSpW8m\",digest-uri=\"acap/elwood.innosoft.com\",maxbuf=65536,response=0d071450228e395e2c0999e02b6aa665,qop=auth,authzid=\"george\"".getBytes();
 		
-		try{
+		try {
 			server.evaluateResponse(message2);
 			throw new Exception("Not throwed SaslException!");
 		} catch (SaslException e) {
@@ -153,7 +152,94 @@ public class DigestServerBytemanTest extends BaseTestCase {
 		
 	}
 	
+	/**
+	 * Test with authentication plus integrity protection (qop=auth-int)
+	 */
+	@Test
+	@BMRule(name="Static nonce",
+			targetClass = "com.sun.security.sasl.digest.DigestMD5Base",
+			targetMethod = "generateNonce",
+			action="return \"OA9BSXrbuRhWay\".getBytes();")
+	public void testQopAuthInt() throws Exception {
+		
+		CallbackHandler serverCallback = new ServerCallbackHandler("chris", "secret".toCharArray());
+		Map<String, Object> serverProps = new HashMap<String, Object>();
+		serverProps.put(REALM_PROPERTY, "elwood.innosoft.com");
+		serverProps.put(QOP_PROPERTY, "auth-int");
+		server = Sasl.createSaslServer(DIGEST, "acap", "elwood.innosoft.com", serverProps, serverCallback);
+		requireIncomplete();
+		
+		byte[] message1 = server.evaluateResponse(new byte[0]);
+		assertEquals("realm=\"elwood.innosoft.com\",nonce=\"OA9BSXrbuRhWay\",qop=\"auth-int\",charset=utf-8,algorithm=md5-sess", new String(message1, "UTF-8"));
+		requireIncomplete();
+
+		byte[] message2 = "charset=utf-8,username=\"chris\",realm=\"elwood.innosoft.com\",nonce=\"OA9BSXrbuRhWay\",nc=00000001,cnonce=\"OA9BSuZWMSpW8m\",digest-uri=\"acap/elwood.innosoft.com\",maxbuf=65536,response=d8b17f55b410208c6ebb22f89f9d6cbb,qop=auth-int,authzid=\"chris\"".getBytes();
+		byte[] message3 = server.evaluateResponse(message2);
+		assertEquals("rspauth=7a8794654d6d6de607e9143d52b554a8", new String(message3, "UTF-8"));
+		assertTrue(server.isComplete());
+		assertEquals("chris", server.getAuthorizationID());
+		
+	}
+	
+	/**
+	 * Test with authentication plus integrity and confidentiality protection (qop=auth-conf)
+	 */
+	@Test
+	@BMRule(name="Static nonce",
+			targetClass = "com.sun.security.sasl.digest.DigestMD5Base",
+			targetMethod = "generateNonce",
+			action="return \"OA9BSXrbuRhWay\".getBytes();")
+	public void testQopAuthConf() throws Exception {
+		
+		CallbackHandler serverCallback = new ServerCallbackHandler("chris", "secret".toCharArray());
+		Map<String, Object> serverProps = new HashMap<String, Object>();
+		serverProps.put(REALM_PROPERTY, "elwood.innosoft.com");
+		serverProps.put(QOP_PROPERTY, "auth-conf");
+		server = Sasl.createSaslServer(DIGEST, "acap", "elwood.innosoft.com", serverProps, serverCallback);
+		requireIncomplete();
+		
+		byte[] message1 = server.evaluateResponse(new byte[0]);
+		assertEquals("realm=\"elwood.innosoft.com\",nonce=\"OA9BSXrbuRhWay\",qop=\"auth-conf\",charset=utf-8,cipher=\"3des,rc4,des,rc4-56,rc4-40\",algorithm=md5-sess", new String(message1, "UTF-8"));
+		requireIncomplete();
+
+		byte[] message2 = "charset=utf-8,username=\"chris\",realm=\"elwood.innosoft.com\",nonce=\"OA9BSXrbuRhWay\",nc=00000001,cnonce=\"OA9BSuZWMSpW8m\",digest-uri=\"acap/elwood.innosoft.com\",maxbuf=65536,response=4520cf48234bb93b95548a25cd56601b,qop=auth-conf,cipher=\"3des\",authzid=\"chris\"".getBytes();
+		byte[] message3 = server.evaluateResponse(message2);
+		assertEquals("rspauth=a804fda66588e2d911bbacd1b1163bc1", new String(message3, "UTF-8"));
+		assertTrue(server.isComplete());
+		assertEquals("chris", server.getAuthorizationID());
+		
+	}
+	
+	
+	/**
+	 * Replay attack
+	 */
+	@Test
+	@BMRule(name="Static nonce",
+			targetClass = "com.sun.security.sasl.digest.DigestMD5Base",
+			targetMethod = "generateNonce",
+			action="return \"OA9BSXrbuRhWay\".getBytes();")
+	public void testReplayAttack() throws Exception {
+		
+		CallbackHandler serverCallback = new ServerCallbackHandler("chris", "secret".toCharArray());
+		Map<String, Object> serverProps = new HashMap<String, Object>();
+		serverProps.put(REALM_PROPERTY, "elwood.innosoft.com");
+		server = Sasl.createSaslServer(DIGEST, "acap", "elwood.innosoft.com", serverProps, serverCallback);
+		requireIncomplete();
+		
+		byte[] message1 = server.evaluateResponse(new byte[0]);
+		assertEquals("realm=\"elwood.innosoft.com\",nonce=\"OA9BSXrbuRhWay\",charset=utf-8,algorithm=md5-sess", new String(message1, "UTF-8"));
+		requireIncomplete();
+		
+		byte[] message2 = "charset=utf-8,username=\"chris\",realm=\"elwood.innosoft.com\",nonce=\"OA6MG9tEQGm2hh\",nc=00000001,cnonce=\"OA6MHXh6VqTrRk\",digest-uri=\"imap/elwood.innosoft.com\",response=d388dad90d4bbd760a152321f2143af7,qop=auth".getBytes();
+		try{
+			server.evaluateResponse(message2);
+			throw new Exception("Not throwed SaslException!");
+		} catch (SaslException e) {
+			assertEquals("DIGEST-MD5: digest response format violation. Mismatched nonce.", e.getMessage());
+		}
+		requireIncomplete();
+	}
+	
 	// TODO: MD5 / MD5-sess ?
-	// TODO: qop = auth / auth-int / auth-conf
-	// TODO: authzid
 }
