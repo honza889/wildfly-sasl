@@ -44,7 +44,7 @@ import org.wildfly.sasl.util.SaslStateContext;
  */
 public class MD5DigestSaslClient extends AbstractMD5DigestMechanism implements SaslClient {
 
-    
+
     private static final String DELIMITER = ",";
 
     private String[] realms;
@@ -54,7 +54,7 @@ public class MD5DigestSaslClient extends AbstractMD5DigestMechanism implements S
     private int maxbuf = DEFAULT_MAXBUF;
     private String cipher;
     private String cipher_opts;
-    
+
     private final String authorizationId;
     private final boolean hasInitialResponse;
 
@@ -139,7 +139,7 @@ public class MD5DigestSaslClient extends AbstractMD5DigestMechanism implements S
 
     /**
      * Method creates client response to the server challenge:
-     * 
+     *
      *    digest-response  = 1#( username | realm | nonce | cnonce |
      *                     nonce-count | qop | digest-uri | response |
      *                     maxbuf | charset | cipher | authzid |
@@ -166,7 +166,7 @@ public class MD5DigestSaslClient extends AbstractMD5DigestMechanism implements S
      *  cipher           = "cipher" "=" cipher-value
      *  authzid          = "authzid" "=" <"> authzid-value <">
      *  authzid-value    = qdstr-val
-     *  
+     *
      * @param parsedChallenge
      * @return
      * @throws SaslException
@@ -182,7 +182,7 @@ public class MD5DigestSaslClient extends AbstractMD5DigestMechanism implements S
             digestResponse.append(DELIMITER);
         }
 
-        
+
         final NameCallback nameCallback;
         if (authorizationId != null) {
             nameCallback = new NameCallback("User name", authorizationId);
@@ -192,21 +192,22 @@ public class MD5DigestSaslClient extends AbstractMD5DigestMechanism implements S
 
         final PasswordCallback passwordCallback = new PasswordCallback("User password", false);
 
-        
+
         String realm;
         if (realms != null && realms.length > 1) {
             final RealmChoiceCallback realmChoiceCallBack = new RealmChoiceCallback("User realm", realms, 0, false);
             handleCallbacks(realmChoiceCallBack, nameCallback, passwordCallback);
             realm = realms[realmChoiceCallBack.getSelectedIndexes()[0]];
-        } else {
-            if (realms == null) {
-                
-            }
+        } else if (realms != null && realms.length == 1) {
             final RealmCallback realmCallback = new RealmCallback("User realm", realms[0]);
             handleCallbacks(realmCallback, nameCallback, passwordCallback);
             realm = realmCallback.getText();
+        } else {
+            final RealmCallback realmCallback = new RealmCallback("User realm", "DEFAULT_REALM"); // here should be same default getting
+            handleCallbacks(realmCallback, nameCallback, passwordCallback);
+            realm = realmCallback.getText();
         }
-        
+
         // username
         digestResponse.append("username=\"");
         String userName = nameCallback.getName();
@@ -223,29 +224,29 @@ public class MD5DigestSaslClient extends AbstractMD5DigestMechanism implements S
         digestResponse.append(nonce);
         digestResponse.append("\"").append(DELIMITER);
 
-        // cnonce
-        digestResponse.append("cnonce=\"");
-        byte[] cnonce = generateNonce();
-        digestResponse.append(cnonce);
-        digestResponse.append("\"").append(DELIMITER);
-
         // nc | nonce-count
         digestResponse.append("nc=");
         int nonceCount = getNonceCount();
         digestResponse.append(convertToHexBytesWithLeftPadding(nonceCount, 8));
         digestResponse.append(DELIMITER);
 
-        // qop
-        if (qop != null) {
-            digestResponse.append("qop=");
-            digestResponse.append(qop);
-            digestResponse.append(DELIMITER);
-        }
+        // cnonce
+        digestResponse.append("cnonce=\"");
+        byte[] cnonce = generateNonce();
+        digestResponse.append(cnonce);
+        digestResponse.append("\"").append(DELIMITER);
 
         // digest-uri
         digestResponse.append("digest-uri=\"");
         digestResponse.append(digestURI);
         digestResponse.append("\"").append(DELIMITER);
+
+        // maxbuf
+        //if (maxbuf != DEFAULT_MAXBUF) {
+            digestResponse.append("maxbuf=");
+            digestResponse.append(String.valueOf(maxbuf));
+            digestResponse.append(DELIMITER);
+        //}
 
         // response
         char[] passwd = null;
@@ -264,27 +265,27 @@ public class MD5DigestSaslClient extends AbstractMD5DigestMechanism implements S
         }
         digestResponse.append("response=");
         digestResponse.append(response_value);
-        digestResponse.append(DELIMITER);
 
-        // maxbuf
-        if (maxbuf != DEFAULT_MAXBUF) {
-            digestResponse.append("maxbuf=");
-            digestResponse.append(String.valueOf(maxbuf));
+        // qop
+        if (qop != null) {
             digestResponse.append(DELIMITER);
+            digestResponse.append("qop=");
+            digestResponse.append(qop);
         }
 
         // cipher
-        if (cipher != null) {
+        if (cipher != null && cipher.length() != 0) {
+            digestResponse.append(DELIMITER);
             digestResponse.append("cipher=");
             digestResponse.append(cipher);
-            digestResponse.append(DELIMITER);
         }
 
         // authzid
         if (authorizationId != null) {
+            digestResponse.append(DELIMITER);
             digestResponse.append("authzid=\"");
             digestResponse.append(SaslQuote.quote(authorizationId).getBytes(Charsets.UTF_8));
-            digestResponse.append("\"").append(DELIMITER);
+            digestResponse.append("\"");
         }
 
         return digestResponse.toArray();
